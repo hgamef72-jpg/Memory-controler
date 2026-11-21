@@ -158,7 +158,7 @@ private fun SidebarNavigation(selectedPage: String, onSelect: (String) -> Unit) 
                 Spacer(Modifier.height(8.dp))
                 Text("Native engine is not connected yet.", color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
                 Spacer(Modifier.height(8.dp))
-                Text("VERSION 0.1.0 · UI PREVIEW", color = Muted.copy(alpha = 0.7f), fontSize = 9.sp)
+                Text("VERSION 0.1.0 · LIVE TELEMETRY", color = Muted.copy(alpha = 0.7f), fontSize = 9.sp)
             }
         }
     }
@@ -271,17 +271,6 @@ private fun Sparkline(points: List<Float>, color: Color, modifier: Modifier = Mo
 }
 
 private data class ProcessInfo(val name: String, val pid: String, val cpu: String, val memory: String, val status: String, val tint: Color)
-
-private val previewProcesses = listOf(
-    ProcessInfo("Google Chrome", "8420", "4.8%", "1.42 GB", "Running", Green),
-    ProcessInfo("Code.exe", "12044", "3.2%", "864 MB", "Running", Green),
-    ProcessInfo("Desktop Window Manager", "1680", "1.4%", "182 MB", "System", Blue),
-    ProcessInfo("Windows Explorer", "4920", "0.8%", "126 MB", "Running", Green),
-    ProcessInfo("Discord", "10124", "0.6%", "412 MB", "Running", Green),
-    ProcessInfo("Antimalware Service", "3908", "0.3%", "268 MB", "System", Blue),
-    ProcessInfo("Runtime Broker", "5528", "0.1%", "42 MB", "Idle", Muted),
-    ProcessInfo("SearchHost.exe", "6780", "0.0%", "76 MB", "Idle", Muted)
-)
 
 @Composable
 private fun ProcessPanel(query: String, onQueryChange: (String) -> Unit, processes: List<ProcessInfo>, modifier: Modifier = Modifier) {
