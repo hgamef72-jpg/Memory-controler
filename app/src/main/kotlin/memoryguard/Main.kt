@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -212,7 +213,7 @@ private fun OverviewPage(query: String, onQueryChange: (String) -> Unit) {
 }
 
 @Composable
-private fun MetricCard(title: String, value: String, unit: String, subtitle: String, accent: Color, points: List<Float>) {
+private fun RowScope.MetricCard(title: String, value: String, unit: String, subtitle: String, accent: Color, points: List<Float>) {
     Column(
         Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Panel)
             .border(1.dp, Stroke.copy(alpha = 0.8f), RoundedCornerShape(16.dp)).padding(17.dp)
