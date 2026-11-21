@@ -16,6 +16,7 @@ dependencies {
     implementation(compose.material3)
     implementation(compose.foundation)
     implementation(compose.ui)
+    implementation("com.github.oshi:oshi-core:6.8.2")
 }
 
 compose.desktop {
