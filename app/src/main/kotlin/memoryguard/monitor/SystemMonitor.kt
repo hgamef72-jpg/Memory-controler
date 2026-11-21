@@ -69,7 +69,7 @@ class SystemMonitor {
         val processes = currentProcesses.map { process ->
             val previous = previousProcesses[process.processID]
             val cpuPercent = previous?.let { prior ->
-                runCatching { process.getProcessCpuLoadBetweenTicks(prior) * 100.0 }
+                runCatching { process.getProcessCpuLoadBetweenTicks(prior) * 100.0 / processor.logicalProcessorCount.coerceAtLeast(1) }
                     .getOrDefault(0.0)
                     .coerceIn(0.0, 100.0)
             } ?: 0.0
