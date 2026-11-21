@@ -212,7 +212,7 @@ private fun OverviewPage(query: String, onQueryChange: (String) -> Unit, telemet
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             MetricCard("CPU USAGE", telemetry?.let { oneDecimal(it.cpuLoadPercent) } ?: "—", "%", telemetry?.let { "${it.logicalProcessorCount} logical cores" } ?: "Waiting for system sample", Blue, listOf(20f, 26f, 18f, 35f, 29f, 42f, 31f, 25f, 38f, 18f))
             MetricCard("MEMORY", telemetry?.let { oneDecimal(it.memoryUsedBytes / 1_073_741_824.0) } ?: "—", "GB", telemetry?.let { "of ${oneDecimal(it.memoryTotalBytes / 1_073_741_824.0)} GB · ${oneDecimal(it.memoryUsedPercent)}%" } ?: "Waiting for system sample", Color(0xFF9A7BFF), listOf(30f, 32f, 31f, 35f, 34f, 36f, 38f, 37f, 39f, 39f))
-            MetricCard("DISK ACTIVITY", "—", "", "Disk counters not connected", Amber, listOf(12f, 18f, 14f, 28f, 20f, 15f, 32f, 22f, 26f, 18f))
+            MetricCard("DISK ACTIVITY", telemetry?.let { oneDecimal((it.diskReadBytesPerSecond + it.diskWriteBytesPerSecond) / 1_048_576.0) } ?: "—", "MB/s", telemetry?.let { "R: ${oneDecimal(it.diskReadBytesPerSecond / 1_048_576.0)} · W: ${oneDecimal(it.diskWriteBytesPerSecond / 1_048_576.0)}" } ?: "Waiting for disk sample", Amber, listOf(12f, 18f, 14f, 28f, 20f, 15f, 32f, 22f, 26f, 18f))
             MetricCard("PROCESSES", telemetry?.processCount?.toString() ?: "—", "", "Detected by OSHI", Green, listOf(26f, 25f, 26f, 28f, 26f, 27f, 25f, 29f, 27f, 28f))
         }
         Spacer(Modifier.height(18.dp))
