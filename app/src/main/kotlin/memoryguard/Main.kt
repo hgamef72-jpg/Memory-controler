@@ -29,6 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +46,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import java.util.Locale
+import memoryguard.monitor.SystemMonitor
 
 private val Bg = Color(0xFF0B0E14)
 private val Sidebar = Color(0xFF0E131C)
@@ -72,6 +78,18 @@ fun main() = application {
 private fun MemoryGuardApp() {
     var selectedPage by remember { mutableStateOf("Overview") }
     var query by remember { mutableStateOf("") }
+    val monitor = remember { SystemMonitor() }
+    var telemetry by remember { mutableStateOf<SystemMonitor.Snapshot?>(null) }
+
+    LaunchedEffect(monitor) {
+        while (true) {
+            val sample = runCatching {
+                withContext(Dispatchers.IO) { monitor.sample(100) }
+            }.getOrNull()
+            if (sample != null) telemetry = sample
+            delay(1_000)
+        }
+    }
 
     MaterialTheme(colorScheme = darkColorScheme(
         background = Bg,
@@ -88,7 +106,7 @@ private fun MemoryGuardApp() {
                 TopBar(selectedPage)
                 Spacer(Modifier.height(24.dp))
                 if (selectedPage == "Overview") {
-                    OverviewPage(query = query, onQueryChange = { query = it })
+                    OverviewPage(query = query, onQueryChange = { query = it }, telemetry = telemetry)
                 } else {
                     PlaceholderPage(selectedPage)
                 }
@@ -189,26 +207,26 @@ private fun TopBar(page: String) {
 }
 
 @Composable
-private fun OverviewPage(query: String, onQueryChange: (String) -> Unit) {
+private fun OverviewPage(query: String, onQueryChange: (String) -> Unit, telemetry: SystemMonitor.Snapshot?) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            MetricCard("CPU USAGE", "18.4", "%", "12 logical cores", Blue, listOf(20f, 26f, 18f, 35f, 29f, 42f, 31f, 25f, 38f, 18f))
-            MetricCard("MEMORY", "12.6", "GB", "of 32 GB · 39.4%", Color(0xFF9A7BFF), listOf(30f, 32f, 31f, 35f, 34f, 36f, 38f, 37f, 39f, 39f))
-            MetricCard("DISK ACTIVITY", "4.8", "MB/s", "Read + write", Amber, listOf(12f, 18f, 14f, 28f, 20f, 15f, 32f, 22f, 26f, 18f))
-            MetricCard("PROCESSES", "186", "", "8 active apps", Green, listOf(26f, 25f, 26f, 28f, 26f, 27f, 25f, 29f, 27f, 28f))
+            MetricCard("CPU USAGE", telemetry?.let { oneDecimal(it.cpuLoadPercent) } ?: "—", "%", telemetry?.let { "${it.logicalProcessorCount} logical cores" } ?: "Waiting for system sample", Blue, listOf(20f, 26f, 18f, 35f, 29f, 42f, 31f, 25f, 38f, 18f))
+            MetricCard("MEMORY", telemetry?.let { oneDecimal(it.memoryUsedBytes / 1_073_741_824.0) } ?: "—", "GB", telemetry?.let { "of ${oneDecimal(it.memoryTotalBytes / 1_073_741_824.0)} GB · ${oneDecimal(it.memoryUsedPercent)}%" } ?: "Waiting for system sample", Color(0xFF9A7BFF), listOf(30f, 32f, 31f, 35f, 34f, 36f, 38f, 37f, 39f, 39f))
+            MetricCard("DISK ACTIVITY", "—", "", "Disk counters not connected", Amber, listOf(12f, 18f, 14f, 28f, 20f, 15f, 32f, 22f, 26f, 18f))
+            MetricCard("PROCESSES", telemetry?.processCount?.toString() ?: "—", "", "Detected by OSHI", Green, listOf(26f, 25f, 26f, 28f, 26f, 27f, 25f, 29f, 27f, 28f))
         }
         Spacer(Modifier.height(18.dp))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1.8f).fillMaxHeight()) {
-                ProcessPanel(query, onQueryChange, Modifier.weight(1f))
+                ProcessPanel(query, onQueryChange, telemetry?.processes?.map { p -> ProcessInfo(p.name, p.pid.toString(), "—", formatBytes(p.memoryBytes), p.state, if (p.state == "RUNNING") Green else Muted) } ?: emptyList(), Modifier.weight(1f))
             }
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                SystemHealthPanel(Modifier.weight(1.05f))
+                SystemHealthPanel(telemetry, Modifier.weight(1.05f))
                 ActivityPanel(Modifier.weight(0.95f))
             }
         }
         Spacer(Modifier.height(12.dp))
-        Text("PREVIEW DATA · LIVE WINDOWS TELEMETRY WILL BE CONNECTED IN THE NEXT MILESTONE", color = Muted.copy(alpha = 0.65f), fontSize = 9.sp, letterSpacing = 0.8.sp)
+        Text(if (telemetry == null) "WAITING FOR LOCAL SYSTEM TELEMETRY" else "LIVE LOCAL TELEMETRY · REFRESH 1s · READ-ONLY", color = Muted.copy(alpha = 0.65f), fontSize = 9.sp, letterSpacing = 0.8.sp)
     }
 }
 
@@ -266,7 +284,7 @@ private val previewProcesses = listOf(
 )
 
 @Composable
-private fun ProcessPanel(query: String, onQueryChange: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun ProcessPanel(query: String, onQueryChange: (String) -> Unit, processes: List<ProcessInfo>, modifier: Modifier = Modifier) {
     Column(modifier.clip(RoundedCornerShape(16.dp)).background(Panel).border(1.dp, Stroke, RoundedCornerShape(16.dp))) {
         Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
@@ -300,7 +318,7 @@ private fun ProcessPanel(query: String, onQueryChange: (String) -> Unit, modifie
             Text("MEMORY", color = Muted, fontSize = 9.sp, modifier = Modifier.weight(0.9f))
             Text("STATUS", color = Muted, fontSize = 9.sp, modifier = Modifier.weight(0.8f))
         }
-        val filtered = previewProcesses.filter { it.name.contains(query, ignoreCase = true) || it.pid.contains(query) }
+        val filtered = processes.filter { it.name.contains(query, ignoreCase = true) || it.pid.contains(query) }
         LazyColumn {
             items(filtered) { process -> ProcessTableRow(process) }
         }
@@ -333,22 +351,22 @@ private fun ProcessTableRow(process: ProcessInfo) {
 }
 
 @Composable
-private fun SystemHealthPanel(modifier: Modifier = Modifier) {
+private fun SystemHealthPanel(telemetry: SystemMonitor.Snapshot?, modifier: Modifier = Modifier) {
     Column(modifier.clip(RoundedCornerShape(16.dp)).background(Panel).border(1.dp, Stroke, RoundedCornerShape(16.dp)).padding(18.dp)) {
         Text("System health", color = TextMain, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(5.dp))
         Text("Current device snapshot", color = Muted, fontSize = 10.sp)
         Spacer(Modifier.height(20.dp))
-        HealthBar("Memory pressure", "39%", 0.39f, Blue)
+        HealthBar("Memory pressure", telemetry?.let { "${oneDecimal(it.memoryUsedPercent)}%" } ?: "—", (telemetry?.memoryUsedPercent?.toFloat()?.div(100f) ?: 0f).coerceIn(0f, 1f), Blue)
         Spacer(Modifier.height(17.dp))
-        HealthBar("CPU load", "18%", 0.18f, Green)
+        HealthBar("CPU load", telemetry?.let { "${oneDecimal(it.cpuLoadPercent)}%" } ?: "—", (telemetry?.cpuLoadPercent?.toFloat()?.div(100f) ?: 0f).coerceIn(0f, 1f), Green)
         Spacer(Modifier.height(17.dp))
-        HealthBar("Commit charge", "44%", 0.44f, Color(0xFF9A7BFF))
+        HealthBar("Process count", telemetry?.processCount?.toString() ?: "—", 0f, Color(0xFF9A7BFF))
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0xFF182A27)).padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(7.dp).clip(CircleShape).background(Green))
             Spacer(Modifier.width(8.dp))
-            Text("No critical indicators detected", color = Green, fontSize = 10.sp)
+            Text(if (telemetry == null) "Waiting for telemetry" else "Live system sample received", color = if (telemetry == null) Amber else Green, fontSize = 10.sp)
         }
     }
 }
@@ -399,4 +417,14 @@ private fun PlaceholderPage(page: String) {
             Text("This module is planned for the next development milestone.", color = Muted, fontSize = 12.sp)
         }
     }
+}
+
+
+private fun oneDecimal(value: Double): String = String.format(Locale.US, "%.1f", value)
+
+private fun formatBytes(bytes: Long): String = when {
+    bytes >= 1L shl 30 -> "${oneDecimal(bytes / 1_073_741_824.0)} GB"
+    bytes >= 1L shl 20 -> "${oneDecimal(bytes / 1_048_576.0)} MB"
+    bytes >= 1L shl 10 -> "${oneDecimal(bytes / 1_024.0)} KB"
+    else -> "${bytes} B"
 }
