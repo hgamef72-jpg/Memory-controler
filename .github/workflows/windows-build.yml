@@ -7,6 +7,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+concurrency:
+  group: memoryguard-windows-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
@@ -26,3 +30,10 @@ jobs:
         run: gradle :app:compileKotlin
       - name: Build MSI package
         run: gradle :app:packageMsi
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: MemoryGuard-Windows-MSI
+          path: app/build/compose/binaries/main/msi/*.msi
+          if-no-files-found: error
+          retention-days: 14
