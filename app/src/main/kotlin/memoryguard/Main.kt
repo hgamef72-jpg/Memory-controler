@@ -87,7 +87,7 @@ private fun MemoryGuardApp() {
                 withContext(Dispatchers.IO) { monitor.sample(100) }
             }.getOrNull()
             if (sample != null) telemetry = sample
-            delay(1_000)
+            delay(2_000)
         }
     }
 
