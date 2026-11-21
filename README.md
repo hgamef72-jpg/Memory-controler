@@ -1,22 +1,49 @@
 # MemoryGuard
 
-MemoryGuard is a Windows process and memory diagnostics application.
+MemoryGuard is a Windows system diagnostics and process-management desktop application.
 
-## Planned architecture
+## Current milestone
 
-- Kotlin + Compose Desktop for the user interface.
-- A native C++20 Windows engine for supported process diagnostics and operations.
-- JNA for the Kotlin/native boundary.
+The repository contains the first Compose Desktop UI preview:
 
-## Initial scope
+- Dark desktop layout with custom navigation.
+- Overview dashboard with metric cards and sparkline charts.
+- Searchable process table using clearly marked preview data.
+- System health and recent activity panels.
+- Windows MSI packaging configuration.
 
-- Enumerate processes and display resource usage.
-- Inspect threads and supported process state operations.
-- Enumerate virtual memory regions in read-only mode.
-- Record user-initiated actions in an audit log.
+**Important:** dashboard values are mock preview data. The UI is not connected to live Windows telemetry yet.
 
-Operations are limited by Windows access rights and process protection. The application will not bypass protected-process controls, kernel protections, or access-control boundaries.
+## Architecture
 
-## Development status
+- Kotlin + Compose Desktop for the desktop interface.
+- Native C++20 Windows engine for supported process and memory diagnostics.
+- JNA for Kotlin/native interop.
+- Windows APIs with access checks and explicit audit logging.
 
-Repository initialized. Implementation and automated validation are pending.
+## Planned modules
+
+- Process enumeration and resource statistics.
+- Thread inspection and supported process-state operations.
+- Read-only virtual memory region inspection.
+- Diagnostics and activity/audit log.
+
+All operations remain subject to Windows access rights and process protections. MemoryGuard will not bypass protected-process controls, kernel protections, or access-control boundaries.
+
+## Build
+
+Requires JDK 17 and Gradle 8.10.2 or compatible.
+
+```powershell
+gradle :app:run
+```
+
+Build an MSI on Windows:
+
+```powershell
+gradle :app:packageMsi
+```
+
+## Status
+
+Version 0.1.0 — UI foundation in progress. Native engine, live telemetry, automated tests, and signed installer are not implemented yet.
