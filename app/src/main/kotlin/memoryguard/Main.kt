@@ -218,7 +218,7 @@ private fun OverviewPage(query: String, onQueryChange: (String) -> Unit, telemet
         Spacer(Modifier.height(18.dp))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1.8f).fillMaxHeight()) {
-                ProcessPanel(query, onQueryChange, telemetry?.processes?.map { p -> ProcessInfo(p.name, p.pid.toString(), "—", formatBytes(p.memoryBytes), p.state, if (p.state == "RUNNING") Green else Muted) } ?: emptyList(), Modifier.weight(1f))
+                ProcessPanel(query, onQueryChange, telemetry?.processes?.map { p -> ProcessInfo(p.name, p.pid.toString(), "${oneDecimal(p.cpuPercent)}%", formatBytes(p.memoryBytes), p.state, if (p.state == "RUNNING") Green else Muted) } ?: emptyList(), Modifier.weight(1f))
             }
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 SystemHealthPanel(telemetry, Modifier.weight(1.05f))
