@@ -80,13 +80,17 @@ private fun MemoryGuardApp() {
     var query by remember { mutableStateOf("") }
     val monitor = remember { SystemMonitor() }
     var telemetry by remember { mutableStateOf<SystemMonitor.Snapshot?>(null) }
+    var telemetryHistory by remember { mutableStateOf<List<SystemMonitor.Snapshot>>(emptyList()) }
 
     LaunchedEffect(monitor) {
         while (true) {
             val sample = runCatching {
                 withContext(Dispatchers.IO) { monitor.sample(100) }
             }.getOrNull()
-            if (sample != null) telemetry = sample
+            if (sample != null) {
+                telemetry = sample
+                telemetryHistory = (telemetryHistory + sample).takeLast(30)
+            }
             delay(2_000)
         }
     }
@@ -106,7 +110,7 @@ private fun MemoryGuardApp() {
                 TopBar(selectedPage)
                 Spacer(Modifier.height(24.dp))
                 if (selectedPage == "Overview") {
-                    OverviewPage(query = query, onQueryChange = { query = it }, telemetry = telemetry)
+                    OverviewPage(query = query, onQueryChange = { query = it }, telemetry = telemetry, history = telemetryHistory)
                 } else {
                     PlaceholderPage(selectedPage)
                 }
@@ -207,13 +211,13 @@ private fun TopBar(page: String) {
 }
 
 @Composable
-private fun OverviewPage(query: String, onQueryChange: (String) -> Unit, telemetry: SystemMonitor.Snapshot?) {
+private fun OverviewPage(query: String, onQueryChange: (String) -> Unit, telemetry: SystemMonitor.Snapshot?, history: List<SystemMonitor.Snapshot>) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            MetricCard("CPU USAGE", telemetry?.let { oneDecimal(it.cpuLoadPercent) } ?: "—", "%", telemetry?.let { "${it.logicalProcessorCount} logical cores" } ?: "Waiting for system sample", Blue, listOf(20f, 26f, 18f, 35f, 29f, 42f, 31f, 25f, 38f, 18f))
-            MetricCard("MEMORY", telemetry?.let { oneDecimal(it.memoryUsedBytes / 1_073_741_824.0) } ?: "—", "GB", telemetry?.let { "of ${oneDecimal(it.memoryTotalBytes / 1_073_741_824.0)} GB · ${oneDecimal(it.memoryUsedPercent)}%" } ?: "Waiting for system sample", Color(0xFF9A7BFF), listOf(30f, 32f, 31f, 35f, 34f, 36f, 38f, 37f, 39f, 39f))
-            MetricCard("DISK ACTIVITY", telemetry?.let { oneDecimal((it.diskReadBytesPerSecond + it.diskWriteBytesPerSecond) / 1_048_576.0) } ?: "—", "MB/s", telemetry?.let { "R: ${oneDecimal(it.diskReadBytesPerSecond / 1_048_576.0)} · W: ${oneDecimal(it.diskWriteBytesPerSecond / 1_048_576.0)}" } ?: "Waiting for disk sample", Amber, listOf(12f, 18f, 14f, 28f, 20f, 15f, 32f, 22f, 26f, 18f))
-            MetricCard("PROCESSES", telemetry?.processCount?.toString() ?: "—", "", "Detected by OSHI", Green, listOf(26f, 25f, 26f, 28f, 26f, 27f, 25f, 29f, 27f, 28f))
+            MetricCard("CPU USAGE", telemetry?.let { oneDecimal(it.cpuLoadPercent) } ?: "—", "%", telemetry?.let { "${it.logicalProcessorCount} logical cores" } ?: "Waiting for system sample", Blue, history.map { it.cpuLoadPercent.toFloat() })
+            MetricCard("MEMORY", telemetry?.let { oneDecimal(it.memoryUsedBytes / 1_073_741_824.0) } ?: "—", "GB", telemetry?.let { "of ${oneDecimal(it.memoryTotalBytes / 1_073_741_824.0)} GB · ${oneDecimal(it.memoryUsedPercent)}%" } ?: "Waiting for system sample", Color(0xFF9A7BFF), history.map { it.memoryUsedPercent.toFloat() })
+            MetricCard("DISK ACTIVITY", telemetry?.let { oneDecimal((it.diskReadBytesPerSecond + it.diskWriteBytesPerSecond) / 1_048_576.0) } ?: "—", "MB/s", telemetry?.let { "R: ${oneDecimal(it.diskReadBytesPerSecond / 1_048_576.0)} · W: ${oneDecimal(it.diskWriteBytesPerSecond / 1_048_576.0)}" } ?: "Waiting for disk sample", Amber, history.map { ((it.diskReadBytesPerSecond + it.diskWriteBytesPerSecond) / 1_048_576.0).toFloat() })
+            MetricCard("PROCESSES", telemetry?.processCount?.toString() ?: "—", "", "Detected by OSHI", Green, history.map { it.processCount.toFloat() })
         }
         Spacer(Modifier.height(18.dp))
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
