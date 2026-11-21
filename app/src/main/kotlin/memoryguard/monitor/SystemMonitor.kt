@@ -18,6 +18,8 @@ class SystemMonitor {
 
     private var previousCpuTicks: LongArray = processor.systemCpuLoadTicks
     private var previousProcesses: Map<Int, OSProcess> = emptyMap()
+    private var previousDiskBytes: Pair<Long, Long>? = null
+    private var previousDiskSampleNanos: Long = 0L
 
     data class ProcessSnapshot(
         val pid: Int,
@@ -33,6 +35,8 @@ class SystemMonitor {
         val memoryAvailableBytes: Long,
         val processCount: Int,
         val logicalProcessorCount: Int,
+        val diskReadBytesPerSecond: Double,
+        val diskWriteBytesPerSecond: Double,
         val processes: List<ProcessSnapshot>
     ) {
         val memoryUsedBytes: Long
@@ -79,12 +83,39 @@ class SystemMonitor {
         }
         previousProcesses = currentProcesses.associateBy { it.processID }
 
+        var totalReadBytes = 0L
+        var totalWriteBytes = 0L
+        systemInfo.hardware.diskStores.forEach { disk ->
+            runCatching {
+                disk.updateAttributes()
+                if (disk.readBytes >= 0L) totalReadBytes += disk.readBytes
+                if (disk.writeBytes >= 0L) totalWriteBytes += disk.writeBytes
+            }
+        }
+        val nowNanos = System.nanoTime()
+        val previousDisk = previousDiskBytes
+        val elapsedSeconds = if (previousDiskSampleNanos > 0L) {
+            (nowNanos - previousDiskSampleNanos) / 1_000_000_000.0
+        } else {
+            0.0
+        }
+        val readRate = if (previousDisk != null && elapsedSeconds > 0.0) {
+            ((totalReadBytes - previousDisk.first).coerceAtLeast(0L)) / elapsedSeconds
+        } else 0.0
+        val writeRate = if (previousDisk != null && elapsedSeconds > 0.0) {
+            ((totalWriteBytes - previousDisk.second).coerceAtLeast(0L)) / elapsedSeconds
+        } else 0.0
+        previousDiskBytes = totalReadBytes to totalWriteBytes
+        previousDiskSampleNanos = nowNanos
+
         return Snapshot(
             cpuLoadPercent = cpuLoad * 100.0,
             memoryTotalBytes = memory.total,
             memoryAvailableBytes = memory.available,
             processCount = operatingSystem.processCount,
             logicalProcessorCount = processor.logicalProcessorCount,
+            diskReadBytesPerSecond = readRate,
+            diskWriteBytesPerSecond = writeRate,
             processes = processes
         )
     }
