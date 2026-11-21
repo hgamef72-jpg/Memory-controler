@@ -17,11 +17,13 @@ class SystemMonitor {
     private val operatingSystem = systemInfo.operatingSystem
 
     private var previousCpuTicks: LongArray = processor.systemCpuLoadTicks
+    private var previousProcesses: Map<Int, OSProcess> = emptyMap()
 
     data class ProcessSnapshot(
         val pid: Int,
         val name: String,
         val memoryBytes: Long,
+        val cpuPercent: Double,
         val state: String
     )
 
@@ -51,22 +53,31 @@ class SystemMonitor {
     @Synchronized
     fun sample(processLimit: Int = 100): Snapshot {
         val currentTicks = processor.systemCpuLoadTicks
-        val cpuLoad = processor.getSystemCpuLoadBetweenTicks(previousCpuTicks, currentTicks)
+        val cpuLoad = processor.getSystemCpuLoadBetweenTicks(previousCpuTicks)
             .coerceIn(0.0, 1.0)
         previousCpuTicks = currentTicks
 
-        val processes = operatingSystem.getProcesses(
+        val currentProcesses = operatingSystem.getProcesses(
             null,
             Comparator.comparingLong<OSProcess> { it.residentSetSize }.reversed(),
             processLimit.coerceIn(1, 500)
-        ).map { process ->
+        )
+        val processes = currentProcesses.map { process ->
+            val previous = previousProcesses[process.processID]
+            val cpuPercent = previous?.let { prior ->
+                runCatching { process.getProcessCpuLoadBetweenTicks(prior) * 100.0 }
+                    .getOrDefault(0.0)
+                    .coerceIn(0.0, 100.0)
+            } ?: 0.0
             ProcessSnapshot(
                 pid = process.processID,
                 name = process.name,
                 memoryBytes = process.residentSetSize.coerceAtLeast(0L),
+                cpuPercent = cpuPercent,
                 state = process.state.name
             )
         }
+        previousProcesses = currentProcesses.associateBy { it.processID }
 
         return Snapshot(
             cpuLoadPercent = cpuLoad * 100.0,
