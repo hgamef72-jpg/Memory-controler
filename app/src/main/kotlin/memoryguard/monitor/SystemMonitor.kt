@@ -56,10 +56,9 @@ class SystemMonitor {
      */
     @Synchronized
     fun sample(processLimit: Int = 100): Snapshot {
-        val currentTicks = processor.systemCpuLoadTicks
         val cpuLoad = processor.getSystemCpuLoadBetweenTicks(previousCpuTicks)
             .coerceIn(0.0, 1.0)
-        previousCpuTicks = currentTicks
+        previousCpuTicks = processor.systemCpuLoadTicks
 
         val currentProcesses = operatingSystem.getProcesses(
             null,
@@ -87,9 +86,10 @@ class SystemMonitor {
         var totalWriteBytes = 0L
         systemInfo.hardware.diskStores.forEach { disk ->
             runCatching {
-                disk.updateAttributes()
-                if (disk.readBytes >= 0L) totalReadBytes += disk.readBytes
-                if (disk.writeBytes >= 0L) totalWriteBytes += disk.writeBytes
+                if (disk.updateAttributes()) {
+                    if (disk.readBytes >= 0L) totalReadBytes += disk.readBytes
+                    if (disk.writeBytes >= 0L) totalWriteBytes += disk.writeBytes
+                }
             }
         }
         val nowNanos = System.nanoTime()
